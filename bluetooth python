@@ -1,0 +1,32 @@
+import bluetooth
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.models import load_model
+
+# Load the trained handwriting recognition model
+model = load_model("handwriting_model.h5")
+
+# Bluetooth connection setup
+server_address = "XX:XX:XX:XX:XX:XX"  # Replace with your ESP32 Bluetooth MAC Address
+port = 1
+sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
+sock.connect((server_address, port))
+print("Connected to ESP32 via Bluetooth")
+
+def predict_character(data):
+    data = np.expand_dims(data, axis=0)  # Reshape for model input
+    prediction = model.predict(data)
+    predicted_char = chr(np.argmax(prediction) + 65)  # Convert to ASCII (A-Z)
+    return predicted_char
+
+try:
+    while True:
+        data = sock.recv(1024).decode("utf-8")
+        if data:
+            values = list(map(float, data.split(",")))  # Parse sensor values
+            if len(values) == 6:  # Ensure correct data format (ax, ay, az, gx, gy, gz)
+                recognized_char = predict_character(np.array(values).reshape(1, 6))
+                print("Recognized Character:", recognized_char)
+except KeyboardInterrupt:
+    print("Closing Bluetooth connection")
+    sock.close()
