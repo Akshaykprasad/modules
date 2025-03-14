@@ -1,0 +1,30 @@
+import requests
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.models import load_model
+
+# Load the trained handwriting recognition model
+model = load_model("handwriting_model.h5")
+
+# ESP32 Web Server Address
+ESP32_URL = "http://192.168.4.1/data"  # Replace with your ESP32's IP
+
+def predict_character(data):
+    data = np.expand_dims(data, axis=0)  # Reshape for model input
+    prediction = model.predict(data)
+    predicted_char = chr(np.argmax(prediction) + 65)  # Convert to ASCII (A-Z)
+    return predicted_char
+
+try:
+    while True:
+        response = requests.get(ESP32_URL)
+        if response.status_code == 200:
+            data = response.text.strip()
+            values = list(map(float, data.split(",")))  # Parse sensor values
+            if len(values) == 6:  # Ensure correct data format (ax, ay, az, gx, gy, gz)
+                recognized_char = predict_character(np.array(values).reshape(1, 6))
+                print("Recognized Character:", recognized_char)
+        else:
+            print("Error fetching data from ESP32")
+except KeyboardInterrupt:
+    print("Stopping data collection")
