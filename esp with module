@@ -1,0 +1,66 @@
+#include <WiFi.h>
+#include <WebServer.h>
+#include <BluetoothSerial.h>
+#include <Wire.h>
+#include <MPU9250.h>
+#include <Kalman.h>
+
+const char* ssid = "SmartPenWiFi";
+const char* password = "12345678";
+
+WebServer server(80);
+BluetoothSerial SerialBT;
+MPU9250 imu(Wire, 0x68);
+Kalman kalmanX, kalmanY, kalmanZ;
+int status;
+
+String recognizedText = "";
+
+void setup() {
+    Serial.begin(115200);
+    SerialBT.begin("SmartPen");
+    WiFi.softAP(ssid, password);
+    server.on("/", HTTP_GET, handleRoot);
+    server.begin();
+    
+    Wire.begin();
+    status = imu.begin();
+    if (status < 0) {
+        Serial.println("IMU initialization failed!");
+        while (1);
+    }
+    Serial.println("IMU Initialized successfully!");
+}
+
+void loop() {
+    server.handleClient();
+    imu.readSensor();
+    
+    float ax = imu.getAccelX_mss();
+    float ay = imu.getAccelY_mss();
+    float az = imu.getAccelZ_mss();
+    
+    float gx = imu.getGyroX_rads();
+    float gy = imu.getGyroY_rads();
+    float gz = imu.getGyroZ_rads();
+    
+    float filteredAx = kalmanX.getAngle(ax, gx, 0.01);
+    float filteredAy = kalmanY.getAngle(ay, gy, 0.01);
+    float filteredAz = kalmanZ.getAngle(az, gz, 0.01);
+    
+    recognizedText = processHandwriting(filteredAx, filteredAy, filteredAz, gx, gy, gz);
+    delay(50);
+}
+
+String processHandwriting(float ax, float ay, float az, float gx, float gy, float gz) {
+    // Simulated recognition (Replace with AI-based recognition)
+    return "Sample Recognized Text";
+}
+
+void handleRoot() {
+    String page = "<html><head><title>Smart Pen</title></head><body>";
+    page += "<h1>Real-Time Handwriting Recognition</h1>";
+    page += "<p>Recognized Text: " + recognizedText + "</p>";
+    page += "</body></html>";
+    server.send(200, "text/html", page);
+}
