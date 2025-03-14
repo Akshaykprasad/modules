@@ -1,0 +1,48 @@
+#include <WiFi.h>
+#include <WebServer.h>
+
+const char* ssid = "SmartPenWiFi";
+const char* password = "12345678";
+
+WebServer server(80);
+String recognizedText = "Waiting for input...";
+String mouseData = "0,0"; // Placeholder for mouse-based tracking
+
+void setup() {
+    Serial.begin(115200);
+    WiFi.softAP(ssid, password);
+    server.on("/data", HTTP_GET, sendMouseData);
+    server.on("/recognition", HTTP_POST, receiveRecognitionData);
+    server.on("/", HTTP_GET, handleRoot);
+    server.begin();
+   
+    Serial.println("ESP32 Mouse Tracking Mode Initialized!");
+}
+
+void loop() {
+    server.handleClient();
+}
+
+void sendMouseData() {
+    server.send(200, "text/plain", mouseData);
+}
+
+void receiveRecognitionData() {
+    if (server.hasArg("plain")) {
+        recognizedText = server.arg("plain");
+    }
+    server.send(200, "text/plain", "Received");
+}
+
+void handleRoot() {
+    String page = "<html><head><meta http-equiv='refresh' content='1'></head><body>";
+    page += "<h1>Live Handwriting Recognition</h1>";
+    page += "<p>Tracking Mode: Mouse (IMU will be added later)</p>";
+    page += "<p id='recognizedText'>Recognized Text: " + recognizedText + "</p>";
+    page += "<canvas id='drawCanvas' width='800' height='400' style='border:1px solid black;'></canvas>";
+    page += "<script>";
+    page += "setInterval(() => { fetch('/recognition').then(response => response.text()).then(text => { document.getElementById('recognizedText').innerText = 'Recognized Text: ' + text; }); }, 1000);";
+    page += "</script>";
+    page += "</body></html>";
+    server.send(200, "text/html\", page);
+}
